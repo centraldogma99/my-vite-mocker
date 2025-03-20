@@ -2,7 +2,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 
 export default {
-  input: 'tsc/index.js',
+  input: 'dist/index.js',
   output: [
     {
       file: 'dist/index.js',
