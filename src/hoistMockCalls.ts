@@ -1,23 +1,24 @@
 import * as Rollup from "rollup";
+import MagicString from "magic-string";
 
 export const hoistMockCalls = (
   code: string,
   ast: Rollup.ProgramNode,
   { debug }: { debug: boolean }
-) => {
+): string => {
   const mockCalls: any[] = [];
-
   // AST를 순회하면서 myVi.mock() 호출문 찾기
   const findMockCalls = (node: any) => {
     // MemberExpression + CallExpression 패턴 찾기
     if (
-      node.type === "CallExpression" &&
-      node.callee &&
-      node.callee.type === "MemberExpression" &&
-      node.callee.object &&
-      node.callee.object.name === "myVi" &&
-      node.callee.property &&
-      node.callee.property.name === "mock"
+      node.type === "ExpressionStatement" &&
+      node.expression.type === "CallExpression" &&
+      node.expression.callee &&
+      node.expression.callee.type === "MemberExpression" &&
+      node.expression.callee.object &&
+      node.expression.callee.object.name === "myVi" &&
+      node.expression.callee.property &&
+      node.expression.callee.property.name === "mock"
     ) {
       mockCalls.push(node);
     }
@@ -38,30 +39,22 @@ export const hoistMockCalls = (
     }
   };
 
+  const s = new MagicString(code);
   // AST 순회 시작
   findMockCalls(ast);
-
-  // myVi.mock() 호출이 발견되었을 때 추가 처리를 할 수 있습니다
   if (mockCalls.length > 0) {
-    console.log("mockCalls", mockCalls);
-
     // 찾은 노드를 파일의 맨 위로 이동시키는 로직
-    try {
-      let newCodes = "";
+    const mockCallLocs: { start: number; end: number }[] = mockCalls.map(
+      (node) => ({ start: node.start, end: node.end })
+    );
 
-      const mockCallLocs: { start: number; end: number }[] = mockCalls.map(
-        (node) => ({ start: node.start, end: node.end })
-      );
+    mockCallLocs.forEach((loc) => {
+      s.prepend(code.slice(loc.start, loc.end) + ";\n");
+      s.remove(loc.start, loc.end);
+    });
 
-      mockCallLocs.forEach((loc) => {
-        newCodes += code.slice(loc.start, loc.end) + ";\n";
-        newCodes += code.slice(0, loc.start);
-        newCodes += code.slice(loc.end);
-      });
-
-      return newCodes;
-    } catch (error) {
-      console.error("mock 호출 이동 중 오류 발생:", error);
-    }
+    return s.toString();
+  } else {
+    return code;
   }
 };
